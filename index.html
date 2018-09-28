@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+  <meta charset="utf-8">
+
+  <title>Weather Report</title>
+
+  <style>
+    @font-face {
+      font-family: "Unifont";
+      src: url("unifont-11.0.02.ttf")
+    }
+
+    html {
+      font-family: "Unifont", monospace
+    }
+
+    body {
+      max-width: 900px;
+      min-width: 200px;
+      margin: 0 auto;
+    }
+  </style>
+</head>
+
+<body>
+  <h1>Weather Report</h1>
+
+  <label for="hitButton">Hit this button</label>
+  <input type="submit" value="GET WEATHER" class="submitInput">
+
+  <p class="locationReport"></p>
+
+  <p class="currentWeather"></p>
+
+  <p class="showResultAPI"></p>
+
+  <script>
+    let submitInput = document.querySelector(".submitInput");
+    let showResultAPI = document.querySelector(".showResultAPI");
+    let currentWeather = document.querySelector(".currentWeather");
+    let locationReport = document.querySelector(".locationReport");
+    currentWeather.style.whiteSpace = 'pre';
+    showResultAPI.style.whiteSpace = 'pre';
+
+    const formatCondition = {
+      "unknown": [
+        "    .-.      ",
+        "     __)     ",
+        "    (        ",
+        "     `-`     ",
+        "      •      ",
+      ],
+      "cloudy": [
+        "             ",
+        "     .--.    ",
+        "  .-(    ).  ",
+        " (___.__)__) ",
+        "             ",
+      ],
+      "overcast clouds": [
+        "             ",
+        "     .--.    ",
+        "  .-(    ).  ",
+        " (___.__)__) ",
+        "             ",
+      ],
+      "clear sky": [
+        "    \\   /    ",
+        "     .-.     ",
+        "  ‒ (   ) ‒  ",
+        "     `-`     ",
+        "    /   \\    ",
+      ],
+      "light rain": [
+        "     .-.     ",
+        "    (   ).   ",
+        "   (___(__)  ",
+        "    ʻ ʻ ʻ ʻ  ",
+        "   ʻ ʻ ʻ ʻ   ",
+      ],
+      "shower rain": [
+        " _`/\"\".-.    ",
+        "  ,\\_(   ).  ",
+        "   /(___(__) ",
+        "     ʻ ʻ ʻ ʻ ",
+        "    ʻ ʻ ʻ ʻ  ",
+      ],
+      "heavy intensity rain": [
+        "     .-.     ",
+        "    (   ).   ",
+        "   (___(__)  ",
+        "  ‚ʻ⚡ʻ‚⚡‚ʻ   ",
+        "  ‚ʻ‚ʻ⚡ʻ‚ʻ   ",
+      ],
+      "moderate rain": [
+        " _`/.-.    ",
+        "  ,\\_(   ).  ",
+        "   /(___(__) ",
+        "     ʻ * ʻ * ",
+        "    * ʻ * ʻ  ",
+      ]
+    }
+
+    const windDict = [
+      "↑", "↗", "→", "↘", "↓", "↙", "←", "↖", 
+    ]
+
+    function getWindDirection(deg) {
+      let windDirection = '';
+      console.log(((deg + 22) % 360) / 45);
+      windDirection = windDict[Math.floor(((deg + 22) % 360) / 45)];
+      return windDirection
+    }
+
+    const miliToSeconds = 1000;
+
+    function hitAPI() {
+      locationReport.textContent = 'Weather report: Yogyakarta, Indonesia';
+      let resultJSON = fetch('https://api.openweathermap.org/data/2.5/forecast?id=1621177&units=metric&APPID=e23a38f3474cc10c4d294552587bbbd0')
+      .then(response => {
+        if (response.status !== 200) {
+          console.log('error');
+        }
+
+        response.json().then(data => {
+          // only get 3 days and four times each day
+          const onlyThreeDays = data.list.filter(weather => {
+            const time = [7, 13, 19, 22];
+            const today = new Date();
+            today.setDate(today.getDate() + 2);
+            return (new Date(weather.dt * miliToSeconds).getDate() <= today.getDate() && time.includes(new Date(weather.dt * miliToSeconds).getHours()))
+          });
+          const times = [7, 13, 19, 22];
+          var weatherPerDay = [];
+          var numberOfRow = 1;
+          var currentWeatherTemporary = [];
+          // to change data into two dimensions array
+          for (let i = 0; i < 3; i++) {
+            weatherPerDay[i] = [];
+            const oneDay = onlyThreeDays.filter(weather => {
+              const today = new Date();
+              today.setDate(today.getDate() + i);
+              return new Date(weather.dt_txt).getDate() === today.getDate()
+            })
+            var indexForNeatingArray = 0;
+            const dict = {
+              0: [7,10],
+              1: [10,13],
+              2: [16,19],
+              3: [19,22],
+            }
+            for (let j = 0; j < 4; j++) {
+              if (times.indexOf(new Date(oneDay[indexForNeatingArray].dt * miliToSeconds).getHours()) === j) {
+                weatherPerDay[i][j] = oneDay[indexForNeatingArray];
+                weatherPerDay[i][j].data = [];
+                var tempDescription = weatherPerDay[i][j].weather[0].description
+                var newDescription = '';
+                if (tempDescription.length > 18) {
+                  newDescription = tempDescription.substring(0, 15);
+                  newDescription += '...';
+                } else {
+                  newDescription = tempDescription;
+                }
+                var direction = getWindDirection(weatherPerDay[i][j].wind.deg)
+                weatherPerDay[i][j].data[0] = newDescription;
+                weatherPerDay[i][j].data[1] = `${weatherPerDay[i][j].main.temp_min}-${weatherPerDay[i][j].main.temp_max} °C`;
+                weatherPerDay[i][j].data[2] = `${direction} ${weatherPerDay[i][j].wind.speed} m/s`;
+                weatherPerDay[i][j].data[3] = `${weatherPerDay[i][j].main.humidity} %`;
+                weatherPerDay[i][j].data[4] = `${weatherPerDay[i][j].main.pressure} hPa`;
+                if (indexForNeatingArray === 0 && numberOfRow === 1) {
+                  for (let x = 0; x < 5; x++) {
+                    var tempToPush = createContent(weatherPerDay[i][j], x, true);
+                    currentWeatherTemporary.push(tempToPush);
+                  }
+                }
+                indexForNeatingArray += 1
+              } else {
+                weatherPerDay[i][j] = undefined;
+              }
+            }
+            numberOfRow += 1;
+          }
+          var arrayToShow = [];
+          for (let i = 0; i < weatherPerDay.length; i++) {
+            let texting = "                                                         ┌─────────────┐                                                  ";
+            arrayToShow.push(texting);
+            var stringDate = new Date(weatherPerDay[i][3].dt_txt).toDateString();
+            var day = stringDate.substring(0,3);
+            var month = stringDate.substring(day.length + 1, day.length + 4);
+            var date = new Date(weatherPerDay[i][3].dt_txt).getDate();
+            var dateToShow = `${day} ${date} ${month}`.padEnd(10,' ');
+            arrayToShow.push(`┌───────────────────────────────┬────────────────────────┤  ${dateToShow} ├────────────────────────┬───────────────────────────────┐`);
+            arrayToShow.push(`│            Pagi               │            Siang       └──────┬──────┘         Sore           │             Malam             │`);
+            arrayToShow.push(`├───────────────────────────────┼───────────────────────────────┼───────────────────────────────┼───────────────────────────────┤`)
+            for (let k = 0; k < 5; k++) {
+              var temp = `│`
+              for (let j = 0; j < 4; j++) { 
+                if (weatherPerDay[i][j] === undefined) {
+                  temp += ``.padEnd(31, ' ');
+                  temp += `│`;
+                } else {
+                  temp += createContent(weatherPerDay[i][j], k);
+                }
+              }
+              arrayToShow.push(temp);
+            }
+            arrayToShow.push(`└───────────────────────────────┴───────────────────────────────┴───────────────────────────────┴───────────────────────────────┘`);
+          }
+          currentWeather.textContent = currentWeatherTemporary.join('\n');
+          showResultAPI.textContent = arrayToShow.join('\n');
+        });
+        
+      }).catch(error => console.log(error))
+    }
+
+    function createContent(content, k, oneData = false) {
+      var temp = '';
+      var tempPad = 31;
+      if (formatCondition[content.weather[0].description]) {
+        var formatWeather = formatCondition[content.weather[0].description];
+        temp += `${formatWeather[k]} ${content.data[k]}`.padEnd(tempPad, ' ');
+        if (oneData === false) {
+          temp += `│`
+        }
+      } else {
+        var formatWeather = formatCondition["unknown"];
+        temp += `${formatWeather[k]} ${content.data[k]}`.padEnd(tempPad, ' ');
+        if (oneData === false) {
+          temp += `│`
+        }
+      }
+      return temp;
+    }
+
+    submitInput.addEventListener('click', hitAPI);
+  </script>
+</body>
+
+</html>
